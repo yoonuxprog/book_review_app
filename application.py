@@ -23,7 +23,7 @@ db = scoped_session(sessionmaker(bind=engine))
 
 @app.route("/")
 def index():
-    return render_template("register.html")
+    return render_template("login.html")
 
 @app.route("/reg", methods = ["POST"])
 def reg():
@@ -35,3 +35,15 @@ def reg():
     db.execute("INSERT INTO users (username, password) VALUES (:username, :password)", {"username": username, "password": password})
     db.commit()
     return render_template("home.html")
+
+@app.route("/authenticate", methods = ["POST"])
+def authenticate():
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    if db.execute("SELECT * FROM users WHERE username = :username AND password = :password", {"username": username, "password": password}).rowcount == 1:
+        return render_template("home.html", message=username)
+    else:
+        return render_template("error.html", message="Incorrect Password")
+
+
