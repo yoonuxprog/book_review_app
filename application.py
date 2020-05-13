@@ -25,25 +25,43 @@ db = scoped_session(sessionmaker(bind=engine))
 def index():
     return render_template("login.html")
 
-@app.route("/reg", methods = ["POST"])
-def reg():
-    #get form information
+@app.route("/register", methods = ["GET", "POST"])
+def register():
+    # get form information
     username = request.form.get("username")
     password = request.form.get("password")
+    
+    error = None
 
-    #insert information to database
-    db.execute("INSERT INTO users (username, password) VALUES (:username, :password)", {"username": username, "password": password})
-    db.commit()
-    return render_template("home.html")
+    if request.method == "POST":
+        if username is "" and password is "":
+            error = "Username and Password cannot be empty"
+            # return render_template("error.html", message="Username and Password cannot be empty")
+        elif db.execute("SELECT * FROM users WHERE username = :username", {"username": username}).rowcount == 1:
+            error = "Username is already taken"
+            # return render_template("error.html", message="Username is already taken")
+        else:
+            #insert information to database
+            db.execute("INSERT INTO users (username, password) VALUES (:username, :password)", {"username": username, "password": password})
+            db.commit()
+            return render_template("home.html", message=username)
+    
+    return render_template("register.html", error=error)
 
-@app.route("/authenticate", methods = ["POST"])
-def authenticate():
+@app.route("/login", methods = ["GET", "POST"])
+def login():
     username = request.form.get("username")
     password = request.form.get("password")
+    
+    error = None
 
-    if db.execute("SELECT * FROM users WHERE username = :username AND password = :password", {"username": username, "password": password}).rowcount == 1:
-        return render_template("home.html", message=username)
-    else:
-        return render_template("error.html", message="Incorrect Password")
+    if request.method == "POST":
+        if db.execute("SELECT * FROM users WHERE username = :username AND password = :password", {"username": username, "password": password}).rowcount == 0:
+            error = "Invalid Credentials. Please try again."
+            # return render_template("error.html", message="Incorrect Password")
+        else:
+            return render_template("home.html", message=username)
+
+    return render_template("login.html", error=error)
 
 
