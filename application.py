@@ -60,10 +60,30 @@ def login():
             error = "Invalid Credentials. Please try again."
             # return render_template("error.html", message="Incorrect Password")
         else:
-            return render_template("search.html", message=username)
+            return render_template("search.html", username=username)
 
     return render_template("login.html", error=error)
 
-@app.route("/search", methods = ["GET"])
+@app.route("/search", methods = ["GET", "POST"])
 def search():
-    return render_template ("search.html")
+    search = request.form.get("search")
+
+    error = None
+
+    books = db.execute("SELECT * FROM books WHERE title LIKE :search OR author LIKE :search OR isbn LIKE :search", {"search": '%' + search + '%'}).fetchall()
+    
+    if not books:
+        error = "No results returned"
+    
+    return render_template ("search.html", books=books, error=error)
+
+@app.route("/books/<int:book_id>")
+def book(book_id):
+    """Lists details about a single book."""
+
+    # Make sure book exists.
+    book = db.execute("SELECT * FROM books WHERE book_id = :book_id", {"book_id": book_id}).fetchone()
+    if book is None:
+        return render_template("error.html", error="No such book.")
+
+    return render_template("book.html", book=book)

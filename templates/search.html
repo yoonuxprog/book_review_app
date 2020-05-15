@@ -4,10 +4,10 @@
 {% endblock %}
 
 {% block body %}
-    <h1>Search</h1>
+    <h2>Search</h2>
     <br>
-    <h1>Welcome {{ message }}</h1>
-    <form action="{{ url_for('search') }}" method="get">
+    
+    <form action="{{ url_for('search') }}" method="post">
 
         <div class="form-group">
             <input class="form-control" name="search" placeholder="Search">
@@ -16,10 +16,19 @@
         <div class="form-group">
             <button class="btn btn-primary">Find</button>
         </div>
-
-        {% if error %}
-            <p class="error"><strong>Error:</strong> {{ error }}
-        {% endif %}
-        
     </form>
+    
+    {% if error %}
+        <p class="error"><strong>Error:</strong> {{ error }}
+    {% endif %}
+
+    <ul>
+        {% for book in books %}
+            <li>
+                <a href="{{ url_for('book', book_id=book.book_id) }}">
+                    {{ book.title }} by {{ book.author }}
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
 {% endblock %}
