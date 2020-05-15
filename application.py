@@ -34,7 +34,7 @@ def register():
     error = None
 
     if request.method == "POST":
-        if username is "" and password is "":
+        if username == "" and password == "":
             error = "Username and Password cannot be empty"
             # return render_template("error.html", message="Username and Password cannot be empty")
         elif db.execute("SELECT * FROM users WHERE username = :username", {"username": username}).rowcount == 1:
@@ -60,8 +60,10 @@ def login():
             error = "Invalid Credentials. Please try again."
             # return render_template("error.html", message="Incorrect Password")
         else:
-            return render_template("home.html", message=username)
+            return render_template("search.html", message=username)
 
     return render_template("login.html", error=error)
 
-
+@app.route("/search", methods = ["GET"])
+def search():
+    return render_template ("search.html")
