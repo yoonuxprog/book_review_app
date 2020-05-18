@@ -1,9 +1,10 @@
 import os
 
-from flask import Flask, session, render_template, request
+from flask import Flask, session, render_template, request, url_for, redirect, session
 from flask_session import Session
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
+from passlib.hash import sha256_crypt
 
 app = Flask(__name__)
 
@@ -25,64 +26,99 @@ db = scoped_session(sessionmaker(bind=engine))
 def index():
     return render_template("login.html")
 
-@app.route("/register", methods = ["GET", "POST"])
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("error.html", error="Whoops, that page doesn't exist (404)")
+
+
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    # get form information
+    # getting form information
     username = request.form.get("username")
     password = request.form.get("password")
-    
+
     error = None
 
     if request.method == "POST":
+        # checking for empty fields
         if username == "" and password == "":
             error = "Username and Password cannot be empty"
-            # return render_template("error.html", message="Username and Password cannot be empty")
+        # checking if the username is already taken
         elif db.execute("SELECT * FROM users WHERE username = :username", {"username": username}).rowcount == 1:
             error = "Username is already taken"
-            # return render_template("error.html", message="Username is already taken")
         else:
-            #insert information to database
-            db.execute("INSERT INTO users (username, password) VALUES (:username, :password)", {"username": username, "password": password})
+            # encrypting password
+            password_hash = sha256_crypt.hash(password)
+
+            # inserting information to database
+            db.execute("INSERT INTO users (username, password) VALUES (:username, :password)", {
+                       "username": username, "password": password_hash})
             db.commit()
-            return render_template("home.html", message=username)
-    
+
+            # creating session for the user
+            session['logged_in'] = True
+            session['username'] = username
+
+            # redirecting the serach page url
+            return redirect(url_for('search'))
+
     return render_template("register.html", error=error)
 
-@app.route("/login", methods = ["GET", "POST"])
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    # getting form information
     username = request.form.get("username")
     password = request.form.get("password")
-    
+
     error = None
 
     if request.method == "POST":
-        if db.execute("SELECT * FROM users WHERE username = :username AND password = :password", {"username": username, "password": password}).rowcount == 0:
-            error = "Invalid Credentials. Please try again."
-            # return render_template("error.html", message="Incorrect Password")
+        # getting the user from the database
+        user = db.execute(
+            "SELECT * FROM users WHERE username = :username", {"username": username}).fetchone()
+
+        # veryfing username and password
+        if user is not None and sha256_crypt.verify(password, user.password):
+            # creating sesion for the user
+            session['logged_in'] = True
+            session['username'] = username
+
+            # redirecting the serach page url
+            return redirect(url_for('search'))
+
         else:
-            return render_template("search.html", username=username)
+            error = "Invalid Credentials. Please try again."
 
     return render_template("login.html", error=error)
 
-@app.route("/search", methods = ["GET", "POST"])
+
+@app.route("/search", methods=["GET", "POST"])
 def search():
     search = request.form.get("search")
 
     error = None
 
-    books = db.execute("SELECT * FROM books WHERE title LIKE :search OR author LIKE :search OR isbn LIKE :search", {"search": '%' + search + '%'}).fetchall()
-    
-    if not books:
-        error = "No results returned"
-    
-    return render_template ("search.html", books=books, error=error)
+    if request.method == "POST":
+        books = db.execute("SELECT * FROM books WHERE title LIKE :search OR author LIKE :search OR isbn LIKE :search",
+                           {"search": '%' + search + '%'}).fetchall()
+
+        if not books:
+            error = "No results returned"
+
+        return render_template("search.html", books=books, error=error)
+
+    return render_template("search.html", error=error)
+
 
 @app.route("/books/<int:book_id>")
 def book(book_id):
     """Lists details about a single book."""
 
     # Make sure book exists.
-    book = db.execute("SELECT * FROM books WHERE book_id = :book_id", {"book_id": book_id}).fetchone()
+    book = db.execute("SELECT * FROM books WHERE book_id = :book_id",
+                      {"book_id": book_id}).fetchone()
     if book is None:
         return render_template("error.html", error="No such book.")
 
